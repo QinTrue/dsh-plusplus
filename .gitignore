@@ -1,0 +1,13 @@
+node_modules/
+lib/
+coverage/
+.cache/
+*.tgz
+*.log
+*.tsbuildinfo
+.env
+.env.*
+!.env.example
+.DS_Store
+AGENTS.local.md
+.browser4-cli/

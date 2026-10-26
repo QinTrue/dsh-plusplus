@@ -1,0 +1,4 @@
+# Settings-controlled gateway; the native DSH listener stays on loopback.
+- insert:
+    - id: dsh-plusplus
+      name: dsh-plusplus

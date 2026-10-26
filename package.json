@@ -1,0 +1,123 @@
+{
+  "name": "dsh-plusplus",
+  "version": "0.1.0",
+  "description": "A modular enhancement toolkit for DeepSeek Harness. DSH 功能增强、界面定制与实用工具集。",
+  "icon": "./assets/icon.svg",
+  "keywords": [
+    "deepseek-harness",
+    "dsh",
+    "toolkit",
+    "enhancements",
+    "plugin",
+    "lan",
+    "gateway"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+ssh://git@github.com/QinTrue/dsh-plusplus.git"
+  },
+  "license": "MIT",
+  "engines": {
+    "node": "^22.19.0 || >=24.0.0",
+    "dsh": ">=0.2.1-rc.2"
+  },
+  "type": "module",
+  "main": "lib/index.js",
+  "types": "lib/types/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./lib/types/index.d.ts",
+      "default": "./lib/index.js"
+    },
+    "./package.json": "./package.json",
+    "./gateway": {
+      "types": "./lib/types/gateway/index.d.ts",
+      "default": "./lib/gateway.js"
+    },
+    "./client": {
+      "types": "./lib/types/client/index.d.ts",
+      "default": "./lib/client.js"
+    }
+  },
+  "files": [
+    "lib",
+    "assets/icon.svg",
+    "cordis.patch.yml",
+    "README.md",
+    "README.en.md",
+    "SECURITY.md",
+    "LICENSE",
+    "THIRD-PARTY-NOTICES.md"
+  ],
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "prepare": "node scripts/build.mjs",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "test": "vitest run",
+    "check": "npm run format:check && npm run typecheck && npm run build && npm test && npm run verify:host && npm run verify:plugin && npm pack --dry-run",
+    "verify:host": "node scripts/verify-host.mjs",
+    "verify:plugin": "node scripts/verify-plugin.mjs",
+    "format": "prettier --write .",
+    "format:check": "prettier --check ."
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "overrides": {
+    "zod": "4.6.6"
+  },
+  "devDependencies": {
+    "@deepseek-ai/cordis": "4.0.5",
+    "@deepseek-ai/cordis-plugin-group": "1.0.5",
+    "@deepseek-ai/cordis-plugin-include": "1.0.10",
+    "@deepseek-ai/cordis-plugin-loader": "1.0.6",
+    "@deepseek-ai/cosmokit": "1.8.6",
+    "@deepseek-ai/dsh-app-boot": "0.2.1-rc.2",
+    "@deepseek-ai/dsh-client-connection": "0.2.1-rc.2",
+    "@deepseek-ai/dsh-config-editor": "0.2.1-rc.2",
+    "@deepseek-ai/dsh-credentials": "0.2.1-rc.2",
+    "@deepseek-ai/dsh-credentials-local": "0.2.1-rc.2",
+    "@deepseek-ai/dsh-host-webserver": "0.2.1-rc.2",
+    "@deepseek-ai/dsh-settings": "0.2.1-rc.2",
+    "@deepseek-ai/schemastery": "3.18.5",
+    "@types/node": "^24.0.0",
+    "@types/react": "^18.3.31",
+    "esbuild": "^0.28.2",
+    "prettier": "^3.9.10",
+    "react": "^18.3.1",
+    "typescript": "^7.0.2",
+    "vitest": "^4.1.10"
+  },
+  "dsh": {
+    "client": {
+      "inject": [
+        "@deepseek-ai/dsh-client-ui-settings-plugins"
+      ],
+      "platform": "web"
+    },
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    }
+  },
+  "peerDependencies": {
+    "@deepseek-ai/cordis": "^4.0.5",
+    "@deepseek-ai/dsh-credentials": ">=0.2.1-rc.2",
+    "@deepseek-ai/schemastery": "^3.18.5"
+  },
+  "peerDependenciesMeta": {
+    "@deepseek-ai/cordis": {
+      "optional": true
+    },
+    "@deepseek-ai/dsh-credentials": {
+      "optional": true
+    },
+    "@deepseek-ai/schemastery": {
+      "optional": true
+    }
+  },
+  "homepage": "https://github.com/QinTrue/dsh-plusplus#readme",
+  "bugs": {
+    "url": "https://github.com/QinTrue/dsh-plusplus/issues"
+  },
+  "author": "QinTrue"
+}

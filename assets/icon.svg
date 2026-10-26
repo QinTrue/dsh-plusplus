@@ -1,0 +1,9 @@
+<svg width="36" height="36" viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <title>DSH++</title>
+  <rect x="4" y="4" width="28" height="28" rx="8" fill="url(#plusplus_blue)"/>
+  <g stroke="white" stroke-width="2.4" stroke-linecap="round">
+    <path d="M9 18h7M12.5 14.5v7"/>
+    <path d="M20 18h7M23.5 14.5v7"/>
+  </g>
+  <defs><linearGradient id="plusplus_blue" x1="18" y1="4" x2="18" y2="32" gradientUnits="userSpaceOnUse"><stop stop-color="#69B9FF"/><stop offset="1" stop-color="#324DE2"/></linearGradient></defs>
+</svg>
