@@ -3,6 +3,7 @@ import { readFileSync, existsSync } from 'node:fs'
 import { createRequire } from 'node:module'
 import { fileURLToPath } from 'node:url'
 import { runInNewContext } from 'node:vm'
+import { applyEntryPatches, entryListSchema } from '@deepseek-ai/cordis-plugin-include'
 import { name, apply, inject } from '../src/index.ts'
 
 const root = new URL('../', import.meta.url)
@@ -18,6 +19,29 @@ describe('published package contract', () => {
     expect(patch).toContain('id: ' + pkg.name)
     expect(patch).toContain('name: ' + pkg.name)
     expect(pkg.bin).toBeUndefined()
+  })
+
+  it('pins the public browse directory picker for LAN and local browser clients', () => {
+    const yaml = createRequire(fileURLToPath(new URL('package.json', root)))('js-yaml') as {
+      load(input: string, options: { schema: typeof entryListSchema }): unknown
+    }
+    const patch = yaml.load(readFileSync(new URL('cordis.patch.yml', root), 'utf8'), {
+      schema: entryListSchema,
+    }) as Parameters<typeof applyEntryPatches>[1]
+    const result = applyEntryPatches(
+      [{ id: 'directory-picker', name: '@deepseek-ai/dsh-host-directory-picker-auto' }],
+      patch,
+      () => {},
+    )
+    expect(result.find((entry) => entry.id === 'directory-picker')).toMatchObject({
+      disabled: true,
+      name: '@deepseek-ai/dsh-host-directory-picker-auto',
+    })
+    expect(result).toContainEqual({
+      id: 'dsh-plusplus-directory-picker-browse',
+      name: '@deepseek-ai/dsh-host-directory-picker-browse',
+    })
+    expect(pkg.dsh.client.inject).toContain('@deepseek-ai/dsh-client-ui-directory-picker-browse')
   })
 
   it('ships usable JavaScript and declarations for every public entry', () => {

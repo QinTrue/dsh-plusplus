@@ -2,3 +2,11 @@
 - insert:
     - id: dsh-plusplus
       name: dsh-plusplus
+    - id: dsh-plusplus-directory-picker-browse
+      name: '@deepseek-ai/dsh-host-directory-picker-browse'
+
+# The web host's auto-picker only sees DSH's loopback listener, not the LAN
+# gateway, and therefore may expose a host-native dialog to a remote browser.
+# Pin the official in-app browser backend, which works for both local and LAN clients.
+- id: directory-picker
+  disabled: true
