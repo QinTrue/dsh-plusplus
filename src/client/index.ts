@@ -1,19 +1,14 @@
-import { createElement as h, useEffect, useState, type FormEvent, type CSSProperties } from 'react'
+import { createElement as h, useEffect, useState, type FormEvent } from 'react'
+import { Button, Input, Switch, writeClipboard } from '@deepseek-ai/dsh-client-ui-primitives'
+import { registerClientStyles } from './styles.ts'
 import type { LanStatus } from '../plugin/management.ts'
 import type { PluginValues } from '../plugin/config.ts'
+import {
+  registerArchiveClient,
+  type ArchiveClientContext,
+} from '../modules/archived-sessions/client.ts'
 
 const ENDPOINT = '/api/dsh-plusplus/lan/manage'
-const row: CSSProperties = { display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 14 }
-const control: CSSProperties = {
-  font: 'inherit',
-  color: 'inherit',
-  border: '1px solid var(--dsw-alias-border-l2, #888)',
-  borderRadius: 8,
-  padding: '9px 12px',
-  background: 'transparent',
-  maxWidth: '100%',
-  boxSizing: 'border-box',
-}
 async function call(body?: unknown): Promise<{ state?: LanStatus; token?: string }> {
   const response = await fetch(ENDPOINT, {
     method: body ? 'POST' : 'GET',
@@ -99,10 +94,9 @@ export function LanSettings() {
   const field = (label: string, name: keyof PluginValues, value: string | number, type = 'text') =>
     h(
       'label',
-      { style: row },
-      label,
-      h('input', {
-        style: control,
+      { className: 'dsh-plusplus-field' },
+      h('span', null, label),
+      h(Input, {
         type,
         value,
         'aria-label': label,
@@ -114,23 +108,22 @@ export function LanSettings() {
     )
   return h(
     'section',
-    {
-      'aria-label': '局域网访问',
-      style: {
-        maxWidth: 620,
-        color: 'var(--dsw-alias-label-primary, inherit)',
-        padding: '12px 0',
-        fontSize: 14,
-      },
-    },
-    h('h3', { style: { marginTop: 0 } }, '局域网访问'),
-    h('p', { role: 'status' }, phase),
-    error ? h('p', { role: 'alert' }, error) : null,
-    state?.message ? h('p', { role: 'alert' }, state.message) : null,
+    { 'aria-label': '局域网访问', className: 'dsh-plusplus-settings' },
+    h(
+      'div',
+      { className: 'dsh-plusplus-section-heading' },
+      h('h3', null, '局域网访问'),
+      h('span', { role: 'status', className: 'dsh-plusplus-caption' }, phase),
+    ),
+    h('p', { className: 'dsh-plusplus-description' }, '让同一网络中的设备访问 DSH。'),
+    error ? h('p', { role: 'alert', className: 'dsh-plusplus-error' }, error) : null,
+    state?.message
+      ? h('p', { role: 'alert', className: 'dsh-plusplus-error' }, state.message)
+      : null,
     state && !state.nativeLoopback
       ? h(
           'p',
-          { role: 'alert' },
+          { role: 'alert', className: 'dsh-plusplus-error' },
           'DSH 当前直接对外监听。请先在本机把原生监听地址改为 127.0.0.1 并重启，然后开启。',
         )
       : null,
@@ -140,23 +133,23 @@ export function LanSettings() {
           { onSubmit: save },
           h(
             'fieldset',
-            { disabled: busy, style: { border: 0, margin: 0, padding: 0, minWidth: 0 } },
+            { disabled: busy },
             h(
-              'label',
-              { style: { display: 'flex', gap: 8, marginBottom: 18 } },
-              h('input', {
-                type: 'checkbox',
+              'div',
+              { className: 'dsh-plusplus-toggle' },
+              h('span', null, '开启局域网访问'),
+              h(Switch, {
+                label: '开启局域网访问',
                 checked: draft.enabled,
-                onChange: (event: React.ChangeEvent<HTMLInputElement>) =>
-                  update('enabled', event.target.checked),
+                disabled: busy,
+                onChange: (checked) => update('enabled', checked),
               }),
-              '开启局域网访问',
             ),
             field('访问地址（留空自动选择）', 'publicOrigin', draft.publicOrigin),
             state.suggestions.length
               ? h(
                   'p',
-                  { style: { overflowWrap: 'anywhere' } },
+                  { className: 'dsh-plusplus-caption' },
                   '检测到：',
                   state.suggestions.join('、'),
                 )
@@ -164,87 +157,122 @@ export function LanSettings() {
             field('网关端口', 'port', draft.port, 'number'),
             h(
               'label',
-              { style: row },
-              state.tokenConfigured ? '更换访问 token（留空保留）' : '设置访问 token',
-              h('input', {
-                style: control,
+              { className: 'dsh-plusplus-field' },
+              h('span', null, state.tokenConfigured ? '访问 token（留空保留）' : '访问 token'),
+              h(Input, {
                 type: 'password',
                 autoComplete: 'new-password',
+                placeholder: state.tokenConfigured
+                  ? '已配置，输入以更换'
+                  : '输入 token 或在下方生成',
+                'aria-label': state.tokenConfigured
+                  ? '更换访问 token（留空保留）'
+                  : '设置访问 token',
                 value: token,
-                disabled: !state.tokenWritable,
+                disabled: busy || !state.tokenWritable,
                 onChange: (event: React.ChangeEvent<HTMLInputElement>) =>
                   setToken(event.target.value),
               }),
             ),
             h(
-              'button',
+              Button,
               {
                 type: 'button',
-                style: control,
-                disabled: !state.tokenWritable,
+                variant: 'outline',
+                size: 'sm',
+                disabled: busy || !state.tokenWritable,
                 onClick: () => void generate(),
               },
               state.tokenConfigured ? '生成新 token' : '生成 token',
             ),
             !state.tokenWritable
-              ? h('p', null, '当前凭据来源只读，请在主机的凭据来源修改。')
+              ? h(
+                  'p',
+                  { className: 'dsh-plusplus-caption' },
+                  '当前凭据来源只读，请在主机的凭据来源修改。',
+                )
               : null,
             generated
               ? h(
                   'div',
-                  { style: { ...row, marginTop: 12 } },
+                  { className: 'dsh-plusplus-generated' },
                   h(
                     'label',
-                    null,
-                    '新 token（请保存，本页关闭后不再显示）',
-                    h('input', {
-                      style: { ...control, width: '100%' },
+                    { className: 'dsh-plusplus-field' },
+                    h('span', null, '新 token'),
+                    h(Input, {
+                      'aria-label': '新 token',
                       value: generated,
                       readOnly: true,
                       type: visible ? 'text' : 'password',
                     }),
                   ),
                   h(
-                    'button',
+                    Button,
                     {
                       type: 'button',
-                      style: control,
+                      variant: 'outline',
+                      size: 'sm',
                       onClick: () => setVisible((current) => !current),
                     },
                     visible ? '隐藏 token' : '显示 token',
                   ),
                   h(
-                    'button',
+                    Button,
                     {
                       type: 'button',
-                      style: control,
+                      variant: 'outline',
+                      size: 'sm',
                       onClick: () => {
-                        void navigator.clipboard
-                          .writeText(generated)
+                        void writeClipboard(generated)
+                          .then((copied) => {
+                            if (!copied) setError('复制失败，请点击显示 token 后手动复制。')
+                          })
                           .catch(() => setError('复制失败，请点击显示 token 后手动复制。'))
                       },
                     },
                     '复制 token',
                   ),
+                  h(
+                    'p',
+                    { className: 'dsh-plusplus-caption' },
+                    '请保存此 token，离开本页后不再显示。',
+                  ),
                 )
               : null,
-            h('p', null, 'token 授予完整操作权限。更换 token 或关闭访问会断开已有连接。'),
+            h(
+              'p',
+              { className: 'dsh-plusplus-caption' },
+              'token 授予完整操作权限。更换 token 或关闭访问会断开已有连接。',
+            ),
             h(
               'details',
               null,
-              h('summary', { style: { cursor: 'pointer', marginBottom: 12 } }, 'HTTPS 设置'),
+              h('summary', null, 'HTTPS 设置'),
               field('证书文件路径（主机）', 'tlsCertPath', draft.tlsCertPath),
               field('私钥文件路径（主机）', 'tlsKeyPath', draft.tlsKeyPath),
             ),
-            h('p', null, 'HTTP 不加密 token 和会话内容；建议使用 HTTPS 或可信加密网络。'),
-            h('button', { type: 'submit', style: control }, busy ? '正在保存…' : '保存并应用'),
+            h(
+              'p',
+              { className: 'dsh-plusplus-caption' },
+              'HTTP 不加密 token 和会话内容；建议使用 HTTPS 或可信加密网络。',
+            ),
+            h(
+              'div',
+              { className: 'dsh-plusplus-settings-footer' },
+              h(
+                Button,
+                { type: 'submit', variant: 'primary', disabled: busy },
+                busy ? '正在保存…' : '保存并应用',
+              ),
+            ),
           ),
         )
       : null,
     state?.phase === 'running'
       ? h(
           'p',
-          { style: { overflowWrap: 'anywhere' } },
+          { className: 'dsh-plusplus-caption' },
           '其他设备打开：',
           h(
             'a',
@@ -256,18 +284,10 @@ export function LanSettings() {
   )
 }
 
-interface ClientContext {
-  effect(run: () => () => void): unknown
-  slots: {
-    inject(name: string, mount: () => () => void): () => void
-    register(
-      options: { name: string; id: string; order: number; label: string },
-      component: typeof LanSettings,
-    ): () => void
-  }
-}
 export const inject = ['slots']
-export function apply(ctx: ClientContext) {
+export function apply(ctx: ArchiveClientContext) {
+  registerClientStyles(ctx)
+  registerArchiveClient(ctx)
   ctx.effect(() =>
     ctx.slots.inject('settings.section', () =>
       ctx.slots.register(

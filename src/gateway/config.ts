@@ -1,4 +1,5 @@
 import { validToken } from './token.ts'
+import { loginThemeCss, type GatewayAppearance } from '../appearance/theme.ts'
 
 export interface GatewayOptions {
   /** Native DSH launch URL. Secret input, never a command-line argument or log. */
@@ -11,6 +12,8 @@ export interface GatewayOptions {
   tls?: { cert: string | Buffer; key: string | Buffer }
   sessionTtlMs?: number
   maxSessions?: number
+  /** Shared --dsw-* light/dark values, also accepted by native theme.overrideTokens. */
+  appearance?: GatewayAppearance
 }
 export interface GatewayConfig {
   upstream: URL
@@ -21,6 +24,7 @@ export interface GatewayConfig {
   tls?: GatewayOptions['tls']
   sessionTtlMs: number
   maxSessions: number
+  loginTheme: string
 }
 
 export function gatewayConfig(options: GatewayOptions): GatewayConfig {
@@ -83,5 +87,6 @@ export function gatewayConfig(options: GatewayOptions): GatewayConfig {
     tls: options.tls,
     sessionTtlMs,
     maxSessions,
+    loginTheme: loginThemeCss(options.appearance),
   }
 }

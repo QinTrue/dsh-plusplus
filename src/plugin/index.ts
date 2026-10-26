@@ -6,6 +6,7 @@ import { Config, TOKEN_REF, type PluginConfig } from './config.ts'
 import { LanManager, MANAGEMENT_PATH } from './management.ts'
 import { responseHeaders } from '../gateway/security.ts'
 import type { IncomingMessage } from 'node:http'
+import { registerArchivedSessions } from '../modules/archived-sessions/host.ts'
 
 export { Config }
 export const name = 'dsh-plusplus'
@@ -48,6 +49,7 @@ function readRequest(req: IncomingMessage, signal: AbortSignal): Promise<unknown
 }
 
 export function apply(ctx: Context, config: PluginConfig): void {
+  if (config.archivedSessions?.enabled !== false) registerArchivedSessions(ctx)
   const manager = new LanManager(ctx, config)
   const life = new AbortController()
   let closed = false

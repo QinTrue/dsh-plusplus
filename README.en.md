@@ -2,7 +2,7 @@
 
 **A modular toolkit for DeepSeek Harness enhancements, interface customization, and practical utilities.**
 
-Package: `dsh-plusplus`. Version `0.1.0` includes **LAN access**. Additional enhancement and appearance modules can be added within the same project.
+Package: `dsh-plusplus`. Version `0.1.0` includes **LAN access** and **archived-session deletion**. Additional enhancement and appearance modules can be added within the same project.
 
 [中文](README.md) · [Development](docs/development.md) · [Security](SECURITY.md)
 
@@ -68,3 +68,9 @@ Visit `/lan` to sign out using a same-origin POST. Sessions expire absolutely af
 - `docs/`: development conventions and architecture.
 
 The package exposes its host plugin at `dsh-plusplus`, browser client at `dsh-plusplus/client`, and Node gateway API at `dsh-plusplus/gateway`. Read the [development guide](docs/development.md) before adding modules.
+
+## Archived-session deletion
+
+Show archived sessions in the sidebar, open the row menu and choose **Permanently delete**. Confirming removes the selected session logs and list records. Both local and authenticated LAN operators can use it. Project files, independent forks and shared attachments remain.
+
+Supports Linux/macOS and the current JSONL format in DSH `0.2.1-rc.2` / `0.2.1-rc.3`. Deletion recursively includes subagents, with their count shown before confirmation; independent forks are preserved. A root or subagent still held by DSH requires a restart before deletion, without reopening it. Active work and another writer refuse deletion. Set `archivedSessions.enabled: false` in plugin configuration to disable the independent module. See [module details](docs/archived-session-deletion.md).

@@ -10,8 +10,10 @@ export interface PluginValues {
 }
 export interface PluginConfig {
   lan: Volatile<PluginValues>
+  archivedSessions?: { enabled: boolean }
 }
 export const Config = z.object({
+  archivedSessions: z.object({ enabled: z.boolean().default(true) }),
   lan: z
     .object({
       enabled: z.boolean().default(false),

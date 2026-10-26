@@ -66,7 +66,7 @@ export async function startGateway(options: GatewayOptions): Promise<Gateway> {
     } catch {
       throw new LoginError(400, '请求路径无效。')
     }
-    if (/^\/api\/dsh-plusplus(?:\/|$)/i.test(path))
+    if (/^\/api\/dsh-plusplus\/lan(?:\/|$)/i.test(path))
       throw new LoginError(403, '请在本机 DSH 设置中管理网关。')
   }
   const send = (
@@ -88,7 +88,7 @@ export async function startGateway(options: GatewayOptions): Promise<Gateway> {
       req.method === 'HEAD'
         ? undefined
         : login
-          ? renderLogin(message, Boolean(sessions.get(req.headers.cookie)))
+          ? renderLogin(message, Boolean(sessions.get(req.headers.cookie)), config.loginTheme)
           : message,
     )
   }

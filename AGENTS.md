@@ -2,12 +2,12 @@
 
 ## Project scope
 
-DSH++ is a modular enhancement toolkit for DeepSeek Harness. Its current module is settings-controlled LAN access. Implement future enhancements and appearance modules through public native plugin APIs, with explicit module boundaries and focused tests.
+DSH++ is a modular enhancement toolkit for DeepSeek Harness. Its current modules are settings-controlled LAN access and archived-session deletion. Implement future enhancements and appearance modules through public native plugin APIs, with explicit module boundaries and focused tests.
 
 - Package, plugin registration, and browser module identity: `dsh-plusplus`.
 - Credential name: `DSH_PLUSPLUS_LAN_TOKEN`.
 - Management namespace: `/api/dsh-plusplus`; LAN settings endpoint: `/api/dsh-plusplus/lan/manage`.
-- No legacy aliases, migration tools, runtime monkey patches, or native DSH source patches.
+- No legacy aliases, migration tools, runtime monkey patches, or native DSH source patches. The archived-session module owns a version-gated JSONL file adapter for the missing native deletion operation; keep it isolated and verify native write ownership before removal.
 - Do not change the installed DSH, user profiles, credentials, session logs, or user files unless explicitly asked to deploy or configure them.
 
 ## Layout
@@ -15,6 +15,7 @@ DSH++ is a modular enhancement toolkit for DeepSeek Harness. Its current module 
 - `src/index.ts`: public host entry.
 - `src/plugin/`: native settings/configuration, management routes, worker ownership, and TLS file loading.
 - `src/client/`: browser settings UI, registered through native slots.
+- `src/modules/`: independently removable enhancements with host/client boundaries and focused tests.
 - `src/gateway/`: Node-builtins-only gateway, proxy, authentication, rate budget, sessions, and IPC worker entry.
 - `scripts/`: build and isolated native verification.
 - `tests/gateway/`, `tests/plugin/`, and package tests: behavioral and boundary checks.
@@ -29,7 +30,7 @@ Use two-space indentation, UTF-8, LF line endings, and explicit relative imports
 - Strict configured Host/full Origin validation happens before rewriting Host/Origin for the fixed numeric-loopback upstream. Forwarding headers never establish identity or origin. Reject CONNECT, absolute request URLs, and arbitrary targets.
 - Gateway sessions are random, opaque, bounded, memory-only, and absolutely expiring. Cookies use HttpOnly, SameSite=Strict, and Secure on TLS. Logout is same-origin POST. Revocation closes owned streams and upgraded sockets.
 - Startup validates secrets and exchanges the explicit native launch URL over loopback HTTP before binding. Native cookies stay server-side. Do not sign native cookies, bypass native auth, or log tokens, cookies, provider/HTTP errors, private keys, or launch URLs.
-- The proxy preserves raw paths, filters hop-by-hop/forwarding headers, supports backpressure and disconnects, and never follows redirects. `/api/dsh-plusplus` management routes never pass through the LAN listener.
+- The proxy preserves raw paths, filters hop-by-hop/forwarding headers, supports backpressure and disconnects, and never follows redirects. Only `/api/dsh-plusplus/lan` management routes are blocked from the LAN listener. Other DSH++ feature routes must work for authenticated LAN users.
 - Each gateway owns its listeners, sessions, rate budgets, pending logins, outbound requests, and upgraded sockets. Stop closes all resources; late async completions cannot create sessions after disposal.
 - The child receives secrets via IPC with no secret argv or inherited environment. Parent disconnect, unload, and shutdown terminate it. Runtime code uses public native APIs; settings persist through Settings/ConfigEditor and secrets through credentials.
 - Authenticated LAN users have full native operator authority. The local management API is not an RBAC boundary against authenticated administrators.

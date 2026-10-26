@@ -34,22 +34,35 @@ describe('published package contract', () => {
     let moduleId: string | undefined
     let client: Client | undefined
     const require = createRequire(fileURLToPath(new URL('package.json', root)))
+    const imports: string[] = []
+    const nativeRequire = (id: string) => {
+      imports.push(id)
+      return id === '@deepseek-ai/dsh-client-ui-primitives' ? {} : require(id)
+    }
+    const removeStyle = () => {
+      styleRemoved = true
+    }
+    let styleRemoved = false
+    const style = { dataset: {}, textContent: '', remove: removeStyle }
     runInNewContext(readFileSync(new URL('lib/client.js', root), 'utf8'), {
+      document: { createElement: () => style, head: { append() {} } },
       window: {
         __ModuleLoader__: {
           load(module: { id: string; factory: (require: NodeJS.Require) => Client }) {
             moduleId = module.id
-            client = module.factory(require)
+            client = module.factory(nativeRequire as NodeJS.Require)
           },
         },
       },
     })
     expect(moduleId).toBe(pkg.name)
     expect(client?.inject).toEqual(['slots'])
+    expect(imports).toContain('@deepseek-ai/dsh-client-ui-primitives')
     let registration: { name: string; id: string } | undefined
     let disposed = false
     const effects: (() => void)[] = []
     client!.apply({
+      inject() {},
       effect(run: () => () => void) {
         effects.push(run())
       },
@@ -69,5 +82,6 @@ describe('published package contract', () => {
     expect(registration).toMatchObject({ name: 'settings.section', id: 'dsh-plusplus-lan' })
     for (const dispose of effects) dispose()
     expect(disposed).toBe(true)
+    expect(styleRemoved).toBe(true)
   })
 })

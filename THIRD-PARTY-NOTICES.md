@@ -16,3 +16,7 @@ The project lineage includes work from the following MIT-licensed projects; attr
 [HAPI](https://github.com/tiann/hapi) inspired the custom-token login pattern. No HAPI implementation code is copied. DSH++ owns independent opaque gateway sessions; native DSH authentication remains a separate loopback layer.
 
 See [LICENSE](LICENSE) for this project's MIT license.
+
+The isolated JSONL compatibility adapter in `src/modules/archived-sessions/files.ts` follows the path encoding and directory layout of [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness), `packages/session/session-persistence-jsonl/src/format.ts`, versions `0.2.1-rc.2` / `0.2.1-rc.3` (MIT, copyright DeepSeek). The applicable upstream MIT notice is included in `LICENSE`.
+
+The standalone LAN login page uses the public DSH theme token names and a minimal set of default design values from DeepSeek Harness `0.2.1-rc.2` (MIT, copyright DeepSeek). In-app controls use the host-provided native UI primitives.

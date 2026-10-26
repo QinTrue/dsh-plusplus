@@ -79,6 +79,25 @@ describe('independent gateway authentication', () => {
       expect(f.seen[0]!.headers[header]).toBeUndefined()
   })
 
+  it('renders shared native theme tokens without public assets, scripts or upstream access', async () => {
+    const f = await setup({
+      appearance: {
+        preference: 'dark',
+        tokens: { '--dsw-alias-brand-primary': { light: '#315c46', dark: '#99ccb1' } },
+      },
+    })
+    const page = await send(f.gateway, '/lan')
+    expect(page.body).toContain('color-scheme:dark')
+    expect(page.body).toContain('--dsw-alias-brand-primary:#99ccb1')
+    expect(page.body).not.toMatch(/<script|<link|<img/)
+    expect(f.seen).toEqual([])
+    const signed = cookie(await login(f.gateway))
+    const connected = await send(f.gateway, '/lan', { headers: { cookie: signed } })
+    expect(connected.body).toContain('action="/lan/logout"')
+    expect(connected.body).not.toContain('action="/lan/login"')
+    expect(connected.body).not.toContain(TOKEN)
+  })
+
   it('rejects hostile authorities, cross-origin requests and absolute proxy targets before reaching upstream', async () => {
     const f = await setup()
     const session = cookie(await login(f.gateway))
@@ -128,6 +147,27 @@ describe('independent gateway authentication', () => {
       expect((await send(f.gateway, path, { headers: { cookie: session } })).status).toBe(403)
     }
     expect(f.seen).toEqual([])
+  })
+
+  it('forwards authenticated DSH++ feature requests while keeping LAN management local', async () => {
+    const f = await setup()
+    const path = '/api/dsh-plusplus/archived-sessions'
+    expect(
+      (await send(f.gateway, path, { method: 'POST', headers: { origin: ORIGIN }, body: '{}' }))
+        .status,
+    ).toBe(401)
+    expect(f.seen).toEqual([])
+    const session = cookie(await login(f.gateway))
+    expect(
+      (
+        await send(f.gateway, path, {
+          method: 'POST',
+          headers: { cookie: session, origin: ORIGIN, 'content-type': 'application/json' },
+          body: '{}',
+        })
+      ).status,
+    ).toBe(200)
+    expect(f.seen.at(-1)?.url).toBe(path)
   })
 
   it('revokes on logout and re-login and refuses duplicated or forged session cookies', async () => {

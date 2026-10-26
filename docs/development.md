@@ -41,6 +41,7 @@ Native settings UI
 - `src/index.ts` exposes the native host plugin.
 - `src/plugin/` owns public DSH service integration, nonsecret configuration, credential writes, management requests, and child lifecycle.
 - `src/client/` registers the settings page. It does not own the listener or alter browser globals/native transport behavior.
+- `src/modules/` contains independent enhancements, including archived-session deletion.
 - `src/gateway/` is dependency-free at runtime apart from Node builtins. It owns authentication, sessions, streaming, and proxying.
 - `src/gateway/index.ts` is the separate programmatic gateway API. Host consumers do not load gateway forwarding code into the main plugin by default.
 - `src/gateway/worker.ts` is only launched by the host and receives secrets once through IPC.
@@ -52,6 +53,16 @@ Build output stays flat at `lib/index.js`, `lib/client.js`, `lib/gateway.js`, an
 Add only implemented features. Do not create empty feature scaffolds or advertise planned capabilities as shipped. Keep feature configuration scoped, client UI limited to native slots, and runtime dependencies isolated. Extend public entrypoints deliberately; do not move unrelated logic into the gateway worker.
 
 Tests should prove user-visible behavior and security boundaries. Put gateway tests in `tests/gateway/`, host/controller tests in `tests/plugin/`, and build/package contract checks at `tests/` root. Share fixtures within their test area. Every added resource must have an explicit owner and disposal path.
+
+The [archived-session deletion module](archived-session-deletion.md) documents the isolated JSONL compatibility adapter, native ownership checks, network access and deletion recovery. Future modules live under `src/modules/<feature>/`, with explicit host/client registration and focused tests. Only LAN configuration is restricted to the local host; other feature endpoints remain available to authenticated LAN users.
+
+## UI and appearance
+
+Use `@deepseek-ai/dsh-client-ui-primitives` for in-app controls, menu items, modals, icons and toasts. The native browser module supplies the implementation and CSS; the development dependency supplies types. Keep plugin layout in `src/client/styles.ts`, scoped to plugin classes and using `--dsw-*` tokens. Do not set a separate in-app palette or copy generated native class names. Active native themes and `theme.overrideTokens` then apply to DSH++ as well.
+
+The token login screen is a separate, script-free document before authentication. It cannot inherit the authenticated app's DOM, browser theme state, or assets. `src/appearance/theme.ts` provides its minimal native defaults and a shared `AppearanceTokens` type with the public native theme API's `{ light, dark }` values. `GatewayOptions.appearance` accepts these tokens and an optional `system` / `light` / `dark` preference; only token declarations are serialized into the page. Defaults follow the device's color scheme.
+
+When implementing a DSH++ appearance module, keep its dual-mode tokens in one shared definition. Register that definition through the public native theme API in its client and pass it as `appearance.tokens` when the host constructs the gateway options in `LanManager`. Also pass any explicit theme preference there. Browser-only CSS overrides cannot automatically propagate to a separate pre-authentication document. This requires no public appearance endpoint or anonymous native assets.
 
 ## Style and release workflow
 

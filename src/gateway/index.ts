@@ -2,3 +2,4 @@
 export { startGateway } from './server.ts'
 export type { Gateway } from './server.ts'
 export type { GatewayOptions } from './config.ts'
+export type { GatewayAppearance, AppearanceTokens } from '../appearance/theme.ts'
