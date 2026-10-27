@@ -46,19 +46,23 @@ export class LanManager {
   values(): PluginValues {
     return { ...this.config.lan.get() }
   }
-  suggestions(port: number): string[] {
+  suggestions(_port?: number): string[] {
     return [
       ...new Set(
         Object.values(networkInterfaces()).flatMap((list) =>
           (list ?? [])
             .filter((row) => row.family === 'IPv4' && !row.internal)
-            .map((row) => 'http://' + row.address + ':' + port),
+            .map((row) => row.address),
         ),
       ),
     ].sort()
   }
   private origin(values: PluginValues) {
-    return values.publicOrigin || this.suggestions(values.port)[0] || ''
+    if (values.publicOrigin) return values.publicOrigin
+    const address = this.suggestions()[0]
+    if (!address) return ''
+    const protocol = values.tlsCertPath || values.tlsKeyPath ? 'https' : 'http'
+    return protocol + '://' + address + ':' + values.port
   }
   private async bounded<T>(operation: Promise<T>): Promise<T> {
     let timer: ReturnType<typeof setTimeout> | undefined
@@ -177,7 +181,7 @@ export class LanManager {
       message: this.message,
       config,
       origin: this.activeOrigin || this.origin(config),
-      suggestions: this.suggestions(config.port),
+      suggestions: this.suggestions(),
       tokenConfigured: info.configured,
       tokenWritable: info.writable,
       nativeLoopback: this.ctx.webServer.host === '127.0.0.1',

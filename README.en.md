@@ -44,7 +44,7 @@ The plugin checks the public `webServer.host` before enabling the gateway and re
 
 1. Open DSH locally and navigate to **Settings → 局域网访问 (LAN access)**.
 2. Generate and save a token, or provide your own. Native credentials stores it as `DSH_PLUSPLUS_LAN_TOKEN`; plugin configuration contains no token.
-3. Set the public origin and port, which defaults to `19388`. A blank origin selects a non-loopback IPv4 address. Choose an explicit reachable address on hosts with multiple interfaces, VPNs, or containers.
+3. Choose a reachable local IPv4 address from the “Local access address” menu; the first detected address is selected by default. Configure the gateway port separately; it defaults to `19388`. Hosts with multiple interfaces, VPNs, or containers can choose “Other address…” and enter an IP, while “Auto select” uses the first available address.
 4. Enable access and save. Once the state shows running, open the displayed `/lan` address on another device and sign in.
 
 The origin port must match the gateway port and differ from the native DSH port. Disabling access stops the listener. Token rotation revokes existing sessions. Native Settings/ConfigEditor persists nonsecret values and restores the enabled state after restart. Unloading the plugin or stopping the parent process stops the worker.

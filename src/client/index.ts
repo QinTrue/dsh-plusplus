@@ -1,4 +1,4 @@
-import { createElement as h, useEffect, useState, type FormEvent } from 'react'
+import { createElement as h, useEffect, useState, type ChangeEvent, type FormEvent } from 'react'
 import { Button, Input, Switch, writeClipboard } from '@deepseek-ai/dsh-client-ui-primitives'
 import { registerClientStyles } from './styles.ts'
 import type { LanStatus } from '../plugin/management.ts'
@@ -9,6 +9,21 @@ import {
 } from '../modules/archived-sessions/client.ts'
 
 const ENDPOINT = '/api/dsh-plusplus/lan/manage'
+const LOCAL_ONLY_MESSAGE = '请在本机 DSH 设置中管理网关。'
+const AUTO_ADDRESS = '__auto__'
+const CUSTOM_ADDRESS = '__custom__'
+type ManagementResult = { state?: LanStatus; token?: string; error?: string }
+
+class ManagementRequestError extends Error {
+  constructor(
+    readonly status: number,
+    message: string,
+  ) {
+    super(message)
+    this.name = 'ManagementRequestError'
+  }
+}
+
 async function call(body?: unknown): Promise<{ state?: LanStatus; token?: string }> {
   const response = await fetch(ENDPOINT, {
     method: body ? 'POST' : 'GET',
@@ -17,9 +32,58 @@ async function call(body?: unknown): Promise<{ state?: LanStatus; token?: string
     headers: body ? { 'content-type': 'application/json' } : {},
     body: body ? JSON.stringify(body) : undefined,
   })
-  const result = (await response.json()) as { state?: LanStatus; token?: string; error?: string }
-  if (!response.ok) throw new Error(result.error || '无法读取局域网设置。')
+  const text = await response.text()
+  let result: ManagementResult
+  try {
+    result = text ? (JSON.parse(text) as ManagementResult) : {}
+  } catch {
+    throw new ManagementRequestError(
+      response.status,
+      response.status === 403 ? LOCAL_ONLY_MESSAGE : '无法读取局域网设置。',
+    )
+  }
+  if (!response.ok)
+    throw new ManagementRequestError(
+      response.status,
+      result.error || (response.status === 403 ? LOCAL_ONLY_MESSAGE : '无法读取局域网设置。'),
+    )
   return result
+}
+
+function originHost(value: string): string {
+  try {
+    return new URL(value).hostname.replace(/^\[|\]$/g, '')
+  } catch {
+    return ''
+  }
+}
+
+function originWithPort(value: string, port: number): string {
+  try {
+    const origin = new URL(value)
+    origin.port = String(port)
+    return origin.origin
+  } catch {
+    return value
+  }
+}
+
+function originWithAddress(address: string, draft: PluginValues): string {
+  const protocol = draft.tlsCertPath || draft.tlsKeyPath ? 'https:' : 'http:'
+  const host = address.includes(':') && !address.startsWith('[') ? '[' + address + ']' : address
+  return protocol + '//' + host + ':' + draft.port
+}
+
+function originForSave(value: string, draft: PluginValues): string {
+  if (!value) return ''
+  const next = originWithPort(value, draft.port)
+  try {
+    const origin = new URL(next)
+    origin.protocol = draft.tlsCertPath || draft.tlsKeyPath ? 'https:' : 'http:'
+    return origin.origin
+  } catch {
+    return next
+  }
 }
 
 /** A settings card only: no global patches, transport interception, or native GUI replacement. */
@@ -31,8 +95,11 @@ export function LanSettings() {
   const [visible, setVisible] = useState(false)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
+  const [localOnly, setLocalOnly] = useState(false)
+  const [addressChoice, setAddressChoice] = useState<string>()
   useEffect(() => {
     let active = true
+    let timer: ReturnType<typeof setInterval> | undefined
     const refresh = async () => {
       try {
         const result = await call()
@@ -43,32 +110,47 @@ export function LanSettings() {
           setDraft((current) => current ?? next.config)
         }
       } catch (error) {
-        if (active) setError((error as Error).message)
+        if (!active) return
+        if (error instanceof ManagementRequestError && error.status === 403) {
+          setLocalOnly(true)
+          setError('')
+          if (timer) clearInterval(timer)
+        } else setError((error as Error).message)
       }
     }
+    timer = setInterval(() => void refresh(), 2000)
     void refresh()
-    const timer = setInterval(() => void refresh(), 2000)
     return () => {
       active = false
-      clearInterval(timer)
+      if (timer) clearInterval(timer)
     }
   }, [])
   const update = <K extends keyof PluginValues>(key: K, value: PluginValues[K]) =>
-    setDraft((current) => (current ? { ...current, [key]: value } : current))
+    setDraft((current) => {
+      if (!current) return current
+      const next = { ...current, [key]: value } as PluginValues
+      if (key === 'port' && typeof value === 'number' && current.publicOrigin)
+        next.publicOrigin = originWithPort(current.publicOrigin, value)
+      return next
+    })
   const save = async (event: FormEvent) => {
     event.preventDefault()
     if (!draft) return
     setBusy(true)
     setError('')
     try {
-      const result = await call({ action: 'save', config: draft, ...(token ? { token } : {}) })
+      const config = { ...draft, publicOrigin: originForSave(draft.publicOrigin, draft) }
+      const result = await call({ action: 'save', config, ...(token ? { token } : {}) })
       if (result.state) {
         setState(result.state)
         setDraft(result.state.config)
       }
       setToken('')
     } catch (error) {
-      setError((error as Error).message)
+      if (error instanceof ManagementRequestError && error.status === 403) {
+        setLocalOnly(true)
+        setError('')
+      } else setError((error as Error).message)
     } finally {
       setBusy(false)
     }
@@ -83,14 +165,30 @@ export function LanSettings() {
       setToken('')
       setVisible(false)
     } catch (error) {
-      setError((error as Error).message)
+      if (error instanceof ManagementRequestError && error.status === 403) {
+        setLocalOnly(true)
+        setError('')
+      } else setError((error as Error).message)
     } finally {
       setBusy(false)
     }
   }
   const phase = state
-    ? { off: '已关闭', starting: '开启中', running: '已开启', error: '启动失败' }[state.phase]
-    : '正在读取设置'
+    ? localOnly
+      ? '仅本机可管理'
+      : { off: '已关闭', starting: '开启中', running: '已开启', error: '启动失败' }[state.phase]
+    : localOnly
+      ? '仅本机可管理'
+      : '正在读取设置'
+  const configuredHost = draft ? originHost(draft.publicOrigin) : ''
+  const selectedAddress =
+    addressChoice ??
+    (configuredHost
+      ? state?.suggestions.includes(configuredHost)
+        ? configuredHost
+        : CUSTOM_ADDRESS
+      : (state?.suggestions[0] ?? AUTO_ADDRESS))
+  const showCustomAddress = selectedAddress === CUSTOM_ADDRESS
   const field = (label: string, name: keyof PluginValues, value: string | number, type = 'text') =>
     h(
       'label',
@@ -101,11 +199,67 @@ export function LanSettings() {
         value,
         'aria-label': label,
         disabled: busy,
-        onChange: (event: React.ChangeEvent<HTMLInputElement>) =>
+        onChange: (event: ChangeEvent<HTMLInputElement>) =>
           update(name, type === 'number' ? Number(event.target.value) : event.target.value),
         ...(type === 'number' ? { min: 1024, max: 65535 } : {}),
       }),
     )
+  const addressField = draft
+    ? h(
+        'div',
+        { className: 'dsh-plusplus-field' },
+        h('span', null, '本机的访问地址'),
+        h(
+          'select',
+          {
+            'aria-label': '本机的访问地址',
+            value: selectedAddress,
+            disabled: busy,
+            onChange: (event: ChangeEvent<HTMLSelectElement>) => {
+              const choice = event.target.value
+              setAddressChoice(choice)
+              if (choice === AUTO_ADDRESS) update('publicOrigin', '')
+              else if (choice === CUSTOM_ADDRESS) {
+                if (!configuredHost || state?.suggestions.includes(configuredHost))
+                  update('publicOrigin', '')
+              } else update('publicOrigin', originWithAddress(choice, draft))
+            },
+          },
+          ...(state?.suggestions ?? []).map((address, index) =>
+            h(
+              'option',
+              { key: address, value: address },
+              address + (index === 0 ? '（默认）' : ''),
+            ),
+          ),
+          h(
+            'option',
+            { value: AUTO_ADDRESS },
+            state?.suggestions.length ? '自动选择（首个可用地址）' : '自动选择（未检测到地址）',
+          ),
+          h('option', { value: CUSTOM_ADDRESS }, '其他地址…'),
+        ),
+        showCustomAddress
+          ? h(Input, {
+              className: 'dsh-plusplus-custom-address',
+              'aria-label': '自定义访问地址',
+              placeholder: '例如 192.168.1.20',
+              value: configuredHost,
+              disabled: busy,
+              onChange: (event: ChangeEvent<HTMLInputElement>) =>
+                update(
+                  'publicOrigin',
+                  event.target.value ? originWithAddress(event.target.value.trim(), draft) : '',
+                ),
+            })
+          : null,
+        h(
+          'span',
+          { className: 'dsh-plusplus-caption' },
+          '列表只显示 IP；协议由 HTTPS 设置决定，端口使用下方网关端口。',
+        ),
+      )
+    : null
   return h(
     'section',
     { 'aria-label': '局域网访问', className: 'dsh-plusplus-settings' },
@@ -116,6 +270,14 @@ export function LanSettings() {
       h('span', { role: 'status', className: 'dsh-plusplus-caption' }, phase),
     ),
     h('p', { className: 'dsh-plusplus-description' }, '让同一网络中的设备访问 DSH。'),
+    localOnly
+      ? h(
+          'div',
+          { role: 'status', className: 'dsh-plusplus-local-only' },
+          h('strong', null, LOCAL_ONLY_MESSAGE),
+          h('span', null, '局域网页面只能使用网关，配置入口仅在本机浏览器提供。'),
+        )
+      : null,
     error ? h('p', { role: 'alert', className: 'dsh-plusplus-error' }, error) : null,
     state?.message
       ? h('p', { role: 'alert', className: 'dsh-plusplus-error' }, state.message)
@@ -127,7 +289,7 @@ export function LanSettings() {
           'DSH 当前直接对外监听。请先在本机把原生监听地址改为 127.0.0.1 并重启，然后开启。',
         )
       : null,
-    state && draft
+    state && draft && !localOnly
       ? h(
           'form',
           { onSubmit: save },
@@ -145,15 +307,7 @@ export function LanSettings() {
                 onChange: (checked) => update('enabled', checked),
               }),
             ),
-            field('访问地址（留空自动选择）', 'publicOrigin', draft.publicOrigin),
-            state.suggestions.length
-              ? h(
-                  'p',
-                  { className: 'dsh-plusplus-caption' },
-                  '检测到：',
-                  state.suggestions.join('、'),
-                )
-              : null,
+            addressField,
             field('网关端口', 'port', draft.port, 'number'),
             h(
               'label',
