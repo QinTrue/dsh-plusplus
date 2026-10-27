@@ -12,6 +12,7 @@ Package: `dsh-plusplus`. Version `0.1.0` includes **LAN access** and **archived-
 - Generate or rotate an access token; set the origin, port, and optional HTTPS certificate paths.
 - The host plugin owns a separate gateway process. No manual gateway command or native launch-link copy is required.
 - Every forwarded HTTP request, asset, upload, SSE stream, and WebSocket upgrade requires a gateway session.
+- LAN users can browse directories on the DSH host in the browser and add a workspace without opening a host OS dialog.
 - Logout, expiry, token rotation, restart, and shutdown revoke access and close owned connections.
 
 ## Requirements

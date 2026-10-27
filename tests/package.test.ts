@@ -41,7 +41,10 @@ describe('published package contract', () => {
       id: 'dsh-plusplus-directory-picker-browse',
       name: '@deepseek-ai/dsh-host-directory-picker-browse',
     })
-    expect(pkg.dsh.client.inject).toContain('@deepseek-ai/dsh-client-ui-directory-picker-browse')
+    expect(result).toContainEqual({
+      id: 'dsh-plusplus-client-directory-picker-browse',
+      name: '@deepseek-ai/dsh-client-ui-directory-picker-browse',
+    })
   })
 
   it('ships usable JavaScript and declarations for every public entry', () => {
