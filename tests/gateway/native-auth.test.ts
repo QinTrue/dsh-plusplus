@@ -32,6 +32,10 @@ describe('standalone upstream trust boundary', () => {
     ])
       expect(() => gatewayConfig({ ...base, publicOrigin })).toThrow()
     expect(gatewayConfig(base).upstream.hostname).toBe('127.0.0.1')
+    expect(gatewayConfig(base).sessionTtlMs).toBe(7 * 24 * 60 * 60_000)
+    expect(() => gatewayConfig({ ...base, sessionTtlMs: 7 * 24 * 60 * 60_000 + 1 })).toThrow(
+      '7 days',
+    )
     expect(
       gatewayConfig({
         ...base,

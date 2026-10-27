@@ -63,7 +63,7 @@ dsh web --host 127.0.0.1 --port 3080
 
 HTTP 不加密 token、cookie 或会话内容。使用 HTTPS 时，在访问地址中填写 HTTPS origin，并在设置中提供匹配且受浏览器信任的 PEM 证书和私钥路径。每个文件最大 256 KiB；证书签发与续期由外部管理。
 
-打开 `/lan` 后可通过同源 POST 退出。默认会话为 8 小时绝对到期；退出、到期、关闭网关或轮换 token 会断开对应的长连接。
+打开 `/lan` 后可通过同源 POST 退出。默认会话为 7 天绝对到期；退出、到期、关闭网关或轮换 token 会断开对应的长连接。
 
 **登录者拥有完整原生 DSH 操作权限**，包括 agent 工具、设置与凭据 API。该模块不提供只读模式或角色隔离。本机管理接口 `/api/dsh-plusplus/lan/manage` 不通过 LAN 网关转发，但这不构成已登录管理员之间的权限隔离。详见 [SECURITY.md](SECURITY.md)。
 

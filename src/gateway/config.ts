@@ -1,6 +1,9 @@
 import { validToken } from './token.ts'
 import { loginThemeCss, type GatewayAppearance } from '../appearance/theme.ts'
 
+const DEFAULT_SESSION_TTL_MS = 7 * 24 * 60 * 60_000
+const MAX_SESSION_TTL_MS = 7 * 24 * 60 * 60_000
+
 export interface GatewayOptions {
   /** Native DSH launch URL. Secret input, never a command-line argument or log. */
   upstreamUrl: string
@@ -71,11 +74,11 @@ export function gatewayConfig(options: GatewayOptions): GatewayConfig {
       'DSH_PLUSPLUS_LAN_TOKEN must be 32–256 UTF-8 bytes without outer whitespace or control characters.',
     )
   const port = options.port ?? Number(origin.port || (origin.protocol === 'https:' ? 443 : 80))
-  const sessionTtlMs = options.sessionTtlMs ?? 8 * 60 * 60_000
+  const sessionTtlMs = options.sessionTtlMs ?? DEFAULT_SESSION_TTL_MS
   const maxSessions = options.maxSessions ?? 1024
   if (!Number.isInteger(port) || port < 0 || port > 65535) throw new Error('Invalid listen port.')
-  if (!Number.isSafeInteger(sessionTtlMs) || sessionTtlMs < 1 || sessionTtlMs > 24 * 60 * 60_000)
-    throw new Error('Session lifetime must be positive and no more than 24 hours.')
+  if (!Number.isSafeInteger(sessionTtlMs) || sessionTtlMs < 1 || sessionTtlMs > MAX_SESSION_TTL_MS)
+    throw new Error('Session lifetime must be positive and no more than 7 days.')
   if (!Number.isSafeInteger(maxSessions) || maxSessions < 1 || maxSessions > 10_000)
     throw new Error('Session capacity must be between 1 and 10000.')
   return {

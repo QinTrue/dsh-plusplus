@@ -55,7 +55,7 @@ Newly generated tokens are displayed only in the current settings page; existing
 
 HTTP does not encrypt tokens, cookies, or content. For HTTPS, configure an HTTPS origin and matching, browser-trusted PEM certificate/private-key files on the host. Each file is limited to 256 KiB. Certificate issuance and renewal are external.
 
-Visit `/lan` to sign out using a same-origin POST. Sessions expire absolutely after eight hours by default. Logout, expiry, disable, or rotation closes the corresponding live connections.
+Visit `/lan` to sign out using a same-origin POST. Sessions expire absolutely after seven days by default. Logout, expiry, disable, or rotation closes the corresponding live connections.
 
 **Authenticated users retain full native DSH operator authority**, including agent tools, settings, and credential APIs. There is no read-only or role-based access mode. The local `/api/dsh-plusplus/lan/manage` endpoint is not forwarded from LAN, but this does not isolate authenticated administrators from one another. See [SECURITY.md](SECURITY.md).
 
