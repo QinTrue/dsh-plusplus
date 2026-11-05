@@ -7,6 +7,7 @@ import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 import { ArchiveFiles } from '../../src/modules/archived-sessions/files.ts'
 import { ArchiveManager, type ArchiveHost } from '../../src/modules/archived-sessions/manager.ts'
+import { supportsArchiveVersion } from '../../src/modules/archived-sessions/host.ts'
 
 const disposers: (() => Promise<void>)[] = []
 afterEach(async () => {
@@ -83,6 +84,22 @@ async function fixture(compression: 'none' | 'zstd' = 'none') {
     },
   }
 }
+
+describe('archived deletion DSH version range', () => {
+  it.each([
+    ['0.2.1-rc.1', false],
+    ['0.2.1-rc.2', true],
+    ['0.2.1-rc.5', true],
+    ['0.2.1', true],
+    ['0.3.0-rc.1', true],
+    ['0.3.0', true],
+    ['0.3.1', false],
+    ['v0.2.1-rc.2', false],
+    ['not-a-version', false],
+  ])('checks %s as %s', (version, supported) => {
+    expect(supportsArchiveVersion(version)).toBe(supported)
+  })
+})
 
 describe('archived session deletion with native JSONL ownership', () => {
   it.each(['none', 'zstd'] as const)(

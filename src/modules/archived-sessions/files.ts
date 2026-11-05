@@ -35,7 +35,7 @@ export interface Receipt {
   descendants?: DescendantIdentity[]
 }
 
-// DSH JSONL 0.2.1-rc.2/rc.3 path encoding. Kept here, with attribution, so the
+// DSH JSONL path encoding for the supported 0.2.1-rc.2 through 0.3.0 range. Kept here, with attribution, so the
 // compatibility adapter can be removed without touching other DSH++ modules.
 export function encodeSegment(value: string): string {
   if (value === '.' || value === '..') return '~002E'.repeat(value.length)

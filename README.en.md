@@ -47,7 +47,7 @@ The plugin checks the public `webServer.host` before enabling the gateway and re
 3. Choose a reachable local IPv4 address from the “Local access address” menu; the first detected address is selected by default. Configure the gateway port separately; it defaults to `19388`. Hosts with multiple interfaces, VPNs, or containers can choose “Other address…” and enter an IP, while “Auto select” uses the first available address.
 4. Enable access and save. Once the state shows running, open the displayed `/lan` address on another device and sign in.
 
-The origin port must match the gateway port and differ from the native DSH port. Disabling access stops the listener. Token rotation revokes existing sessions. Native Settings/ConfigEditor persists nonsecret values and restores the enabled state after restart. Unloading the plugin or stopping the parent process stops the worker.
+The origin port must match the gateway port and differ from the native DSH port. Choose a LAN session lifetime of 1 day, 7 days, 30 days, or permanent. Fixed lifetimes are absolute and do not extend with activity. Permanent sessions use a browser session cookie and remain in gateway memory; logout, gateway shutdown/restart, or ending the browser session requires signing in again. The gateway refreshes native DSH credentials in the background without ending LAN sessions. Disabling access stops the listener. Token rotation revokes existing sessions. Native Settings/ConfigEditor persists nonsecret values and restores the enabled state after restart. Unloading the plugin or stopping the parent process stops the worker.
 
 Newly generated tokens are displayed only in the current settings page; existing secrets cannot be read back. Tokens require 32–256 UTF-8 bytes without outer whitespace or control characters.
 
@@ -55,7 +55,7 @@ Newly generated tokens are displayed only in the current settings page; existing
 
 HTTP does not encrypt tokens, cookies, or content. For HTTPS, configure an HTTPS origin and matching, browser-trusted PEM certificate/private-key files on the host. Each file is limited to 256 KiB. Certificate issuance and renewal are external.
 
-Visit `/lan` to sign out using a same-origin POST. Sessions expire absolutely after seven days by default. Logout, expiry, disable, or rotation closes the corresponding live connections.
+Visit `/lan` to sign out using a same-origin POST. Sessions can be configured for 1, 7, or 30 days, or permanent. Expiry, logout, disable, or rotation closes the corresponding live connections.
 
 **Authenticated users retain full native DSH operator authority**, including agent tools, settings, and credential APIs. There is no read-only or role-based access mode. The local `/api/dsh-plusplus/lan/manage` endpoint is not forwarded from LAN, but this does not isolate authenticated administrators from one another. See [SECURITY.md](SECURITY.md).
 
@@ -74,4 +74,4 @@ The package exposes its host plugin at `dsh-plusplus`, browser client at `dsh-pl
 
 Show archived sessions in the sidebar, open the row menu and choose **Permanently delete**. Confirming removes the selected session logs and list records. Both local and authenticated LAN operators can use it. Project files, independent forks and shared attachments remain.
 
-Supports Linux/macOS and the current JSONL format in DSH `0.2.1-rc.2` / `0.2.1-rc.3`. Deletion recursively includes subagents, with their count shown before confirmation; independent forks are preserved. A root or subagent still held by DSH requires a restart before deletion, without reopening it. Active work and another writer refuse deletion. Set `archivedSessions.enabled: false` in plugin configuration to disable the independent module. See [module details](docs/archived-session-deletion.md).
+Supports Linux/macOS and the current JSONL format in DSH `>=0.2.1-rc.2` and `<=0.3.0`. Deletion recursively includes subagents, with their count shown before confirmation; independent forks are preserved. A root or subagent still held by DSH requires a restart before deletion, without reopening it. Active work and another writer refuse deletion. Set `archivedSessions.enabled: false` in plugin configuration to disable the independent module. See [module details](docs/archived-session-deletion.md).

@@ -65,17 +65,21 @@ export async function fixture(
 ) {
   const seen: { url: string; headers: IncomingHttpHeaders }[] = []
   let upgradeCount = 0
+  let nativeCookie = NATIVE_COOKIE
+  let launchCount = 0
   const native = createServer((req, res) => {
     if (req.url === '/?token=native-private-launch') {
+      launchCount++
+      nativeCookie =
+        launchCount === 1 ? NATIVE_COOKIE : 'dsh-auth-test=native-private-cookie-' + launchCount
       res.writeHead(303, {
         location: './',
-        'set-cookie':
-          NATIVE_COOKIE + '; Path=/; HttpOnly; SameSite=Strict; Max-Age=' + nativeMaxAge,
+        'set-cookie': nativeCookie + '; Path=/; HttpOnly; SameSite=Strict; Max-Age=' + nativeMaxAge,
       })
       res.end()
       return
     }
-    if (req.url === '/' && req.headers.cookie === NATIVE_COOKIE) {
+    if (req.url === '/' && req.headers.cookie === nativeCookie) {
       res.writeHead(200, { 'content-type': 'text/html' })
       res.end('<!doctype html><title>fixture</title>')
       return
@@ -133,6 +137,9 @@ export async function fixture(
     upstreamUrl,
     seen,
     upgrades: () => upgradeCount,
+    get nativeCookie() {
+      return nativeCookie
+    },
     async close() {
       await gateway.close()
       for (const socket of sockets) socket.destroy()

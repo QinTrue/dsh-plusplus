@@ -2,7 +2,7 @@ import { validToken } from './token.ts'
 import { loginThemeCss, type GatewayAppearance } from '../appearance/theme.ts'
 
 const DEFAULT_SESSION_TTL_MS = 7 * 24 * 60 * 60_000
-const MAX_SESSION_TTL_MS = 7 * 24 * 60 * 60_000
+const MAX_SESSION_TTL_MS = 30 * 24 * 60 * 60_000
 
 export interface GatewayOptions {
   /** Native DSH launch URL. Secret input, never a command-line argument or log. */
@@ -13,7 +13,7 @@ export interface GatewayOptions {
   host?: string
   port?: number
   tls?: { cert: string | Buffer; key: string | Buffer }
-  sessionTtlMs?: number
+  sessionTtlMs?: number | 'permanent'
   maxSessions?: number
   /** Shared --dsw-* light/dark values, also accepted by native theme.overrideTokens. */
   appearance?: GatewayAppearance
@@ -26,6 +26,7 @@ export interface GatewayConfig {
   port: number
   tls?: GatewayOptions['tls']
   sessionTtlMs: number
+  permanentSessions: boolean
   maxSessions: number
   loginTheme: string
 }
@@ -74,11 +75,20 @@ export function gatewayConfig(options: GatewayOptions): GatewayConfig {
       'DSH_PLUSPLUS_LAN_TOKEN must be 32–256 UTF-8 bytes without outer whitespace or control characters.',
     )
   const port = options.port ?? Number(origin.port || (origin.protocol === 'https:' ? 443 : 80))
-  const sessionTtlMs = options.sessionTtlMs ?? DEFAULT_SESSION_TTL_MS
+  const requestedSessionTtl = options.sessionTtlMs
+  const permanentSessions = requestedSessionTtl === 'permanent'
+  const sessionTtlMs = permanentSessions
+    ? 0
+    : typeof requestedSessionTtl === 'number'
+      ? requestedSessionTtl
+      : DEFAULT_SESSION_TTL_MS
   const maxSessions = options.maxSessions ?? 1024
   if (!Number.isInteger(port) || port < 0 || port > 65535) throw new Error('Invalid listen port.')
-  if (!Number.isSafeInteger(sessionTtlMs) || sessionTtlMs < 1 || sessionTtlMs > MAX_SESSION_TTL_MS)
-    throw new Error('Session lifetime must be positive and no more than 7 days.')
+  if (
+    !permanentSessions &&
+    (!Number.isSafeInteger(sessionTtlMs) || sessionTtlMs < 1 || sessionTtlMs > MAX_SESSION_TTL_MS)
+  )
+    throw new Error('Session lifetime must be positive and no more than 30 days.')
   if (!Number.isSafeInteger(maxSessions) || maxSessions < 1 || maxSessions > 10_000)
     throw new Error('Session capacity must be between 1 and 10000.')
   return {
@@ -89,6 +99,7 @@ export function gatewayConfig(options: GatewayOptions): GatewayConfig {
     port,
     tls: options.tls,
     sessionTtlMs,
+    permanentSessions,
     maxSessions,
     loginTheme: loginThemeCss(options.appearance),
   }

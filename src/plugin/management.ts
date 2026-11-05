@@ -10,7 +10,7 @@ import type {} from '@deepseek-ai/dsh-settings'
 import type {} from '@deepseek-ai/dsh-config-editor'
 import { GatewayChild } from './child.ts'
 import { gatewayConfig, type GatewayOptions } from '../gateway/config.ts'
-import { TOKEN_REF, type PluginConfig, type PluginValues } from './config.ts'
+import { SESSION_DURATIONS, TOKEN_REF, type PluginConfig, type PluginValues } from './config.ts'
 import { validToken } from '../gateway/token.ts'
 
 export interface LanStatus {
@@ -34,7 +34,6 @@ export class LanManager {
   private generation = 0
   private inFlight: Promise<void> = Promise.resolve()
   private observed = ''
-  private renewal?: ReturnType<typeof setTimeout>
   private phase: LanStatus['phase'] = 'off'
   private message = ''
   private activeOrigin = ''
@@ -104,6 +103,7 @@ export class LanManager {
       upstreamUrl,
       publicOrigin: origin,
       port: values.port,
+      sessionTtlMs: SESSION_DURATIONS[values.sessionDuration],
       host: '0.0.0.0',
       tls,
     }
@@ -121,7 +121,6 @@ export class LanManager {
     const snapshot = JSON.stringify([values, this.ctx.webServer.host, this.ctx.webServer.port])
     if (this.closed || (!force && snapshot === this.observed)) return this.inFlight
     this.observed = snapshot
-    clearTimeout(this.renewal)
     const epoch = ++this.generation
     const previous = this.child
     this.child = undefined
@@ -138,28 +137,28 @@ export class LanManager {
         try {
           const options = await this.options(values)
           if (this.closed || epoch !== this.generation) return
-          const child = new GatewayChild(() => {
-            if (this.child !== child || this.closed) return
-            this.child = undefined
-            this.phase = 'error'
-            this.message = '网关已停止，请在设置中重新开启。'
-          })
+          const child = new GatewayChild(
+            () => {
+              if (this.child !== child || this.closed) return
+              this.child = undefined
+              this.phase = 'error'
+              this.message = '网关已停止，请在设置中重新开启。'
+            },
+            async () => {
+              const url = this.ctx.connection.authenticatedUrl(
+                'http://127.0.0.1:' + this.ctx.webServer.port,
+              )
+              return url
+            },
+          )
           this.child = child
-          const nativeExpiresAt = await child.start(options)
+          await child.start(options)
           if (this.closed || epoch !== this.generation) {
             await child.close()
             return
           }
           this.activeOrigin = options.publicOrigin
           this.phase = 'running'
-          // Renew the private native cookie without asking the operator for launch links/commands.
-          this.renewal = setTimeout(
-            () => {
-              void this.reconcile(true)
-            },
-            Math.max(1000, Math.min(2_147_000_000, nativeExpiresAt - Date.now() - 60_000)),
-          )
-          this.renewal.unref()
         } catch {
           if (this.closed || epoch !== this.generation) return
           await this.child?.close()
@@ -229,7 +228,15 @@ export class LanManager {
     const values = { ...(raw as PluginValues) }
     if (
       Object.keys(values).some(
-        (key) => !['enabled', 'publicOrigin', 'port', 'tlsCertPath', 'tlsKeyPath'].includes(key),
+        (key) =>
+          ![
+            'enabled',
+            'publicOrigin',
+            'port',
+            'sessionDuration',
+            'tlsCertPath',
+            'tlsKeyPath',
+          ].includes(key),
       ) ||
       typeof values.enabled !== 'boolean' ||
       typeof values.publicOrigin !== 'string' ||
@@ -237,7 +244,8 @@ export class LanManager {
       values.port < 1024 ||
       values.port > 65535 ||
       typeof values.tlsCertPath !== 'string' ||
-      typeof values.tlsKeyPath !== 'string'
+      typeof values.tlsKeyPath !== 'string' ||
+      !['1d', '7d', '30d', 'permanent'].includes(values.sessionDuration)
     )
       throw new Error('Invalid settings.')
     if (input.token !== undefined) {
@@ -277,7 +285,6 @@ export class LanManager {
     this.closed = true
     this.generation++
     this.life.abort()
-    clearTimeout(this.renewal)
     await this.child?.close()
     this.child = undefined
     await this.inFlight.catch(() => {})

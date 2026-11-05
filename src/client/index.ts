@@ -312,6 +312,28 @@ export function LanSettings() {
             h(
               'label',
               { className: 'dsh-plusplus-field' },
+              h('span', null, '登录会话有效期'),
+              h(
+                'select',
+                {
+                  'aria-label': '登录会话有效期',
+                  value: draft.sessionDuration,
+                  disabled: busy,
+                  onChange: (event: ChangeEvent<HTMLSelectElement>) =>
+                    update(
+                      'sessionDuration',
+                      event.target.value as PluginValues['sessionDuration'],
+                    ),
+                },
+                h('option', { value: '1d' }, '1 天'),
+                h('option', { value: '7d' }, '7 天'),
+                h('option', { value: '30d' }, '1 个月（30 天）'),
+                h('option', { value: 'permanent' }, '永久（直到退出或网关重启）'),
+              ),
+            ),
+            h(
+              'label',
+              { className: 'dsh-plusplus-field' },
               h('span', null, state.tokenConfigured ? '访问 token（留空保留）' : '访问 token'),
               h(Input, {
                 type: 'password',

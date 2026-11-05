@@ -15,6 +15,58 @@ import { ARCHIVE_ENDPOINT, ArchiveError } from './contract.ts'
 import { ArchiveFiles } from './files.ts'
 import { ArchiveManager } from './manager.ts'
 
+const ARCHIVE_MIN_VERSION = '0.2.1-rc.2'
+const ARCHIVE_MAX_VERSION = '0.3.0'
+
+function compareVersions(left: string, right: string): number | undefined {
+  const parse = (version: string) => {
+    const match =
+      /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-([0-9A-Za-z.-]+))?(?:\+[0-9A-Za-z.-]+)?$/.exec(
+        version,
+      )
+    if (!match) return undefined
+    const core = match.slice(1, 4).map(Number)
+    if (core.some((part) => !Number.isSafeInteger(part))) return undefined
+    const prerelease = match[4]?.split('.')
+    if (
+      prerelease?.some(
+        (part) => !part || (/^\d+$/.test(part) && part.length > 1 && part.startsWith('0')),
+      )
+    )
+      return undefined
+    return { core, prerelease }
+  }
+  const a = parse(left)
+  const b = parse(right)
+  if (!a || !b) return undefined
+  for (let i = 0; i < 3; i++) {
+    if (a.core[i] !== b.core[i]) return a.core[i]! < b.core[i]! ? -1 : 1
+  }
+  if (!a.prerelease && !b.prerelease) return 0
+  if (!a.prerelease) return 1
+  if (!b.prerelease) return -1
+  const length = Math.max(a.prerelease.length, b.prerelease.length)
+  for (let i = 0; i < length; i++) {
+    const x = a.prerelease[i]
+    const y = b.prerelease[i]
+    if (x === undefined) return -1
+    if (y === undefined) return 1
+    if (x === y) continue
+    const xNumeric = /^\d+$/.test(x)
+    const yNumeric = /^\d+$/.test(y)
+    if (xNumeric && yNumeric) return BigInt(x) < BigInt(y) ? -1 : 1
+    if (xNumeric !== yNumeric) return xNumeric ? -1 : 1
+    return x < y ? -1 : 1
+  }
+  return 0
+}
+
+export function supportsArchiveVersion(version: string): boolean {
+  const min = compareVersions(version, ARCHIVE_MIN_VERSION)
+  const max = compareVersions(version, ARCHIVE_MAX_VERSION)
+  return min !== undefined && max !== undefined && min >= 0 && max <= 0
+}
+
 /** Version gate is intentional: this module implements the missing storage operation. */
 export function nativeArchiveRoot(ctx: Context): string {
   if (process.platform === 'win32')
@@ -29,7 +81,7 @@ export function nativeArchiveRoot(ctx: Context): string {
     const pkg = JSON.parse(
       readFileSync(require.resolve('@deepseek-ai/' + name + '/package.json'), 'utf8'),
     ) as { version: string }
-    if (!['0.2.1-rc.2', '0.2.1-rc.3'].includes(pkg.version))
+    if (!supportsArchiveVersion(pkg.version))
       throw new ArchiveError('unsupported-host', '当前 DSH 版本尚未通过归档删除兼容验证。', 503)
   }
   const candidates = ctx.configEditor.entries().filter((entry) => {

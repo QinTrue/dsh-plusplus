@@ -2,15 +2,27 @@ import { describe, expect, it, vi } from 'vitest'
 import type { Context } from '@deepseek-ai/cordis'
 import { createVolatile } from '@deepseek-ai/cosmokit'
 import { LanManager } from '../../src/plugin/management.ts'
-import type { PluginValues } from '../../src/plugin/config.ts'
+import { SESSION_DURATIONS, type PluginValues } from '../../src/plugin/config.ts'
 
 const values: PluginValues = {
   enabled: false,
   publicOrigin: 'http://127.0.0.1:19388',
   port: 19388,
+  sessionDuration: '7d',
   tlsCertPath: '',
   tlsKeyPath: '',
 }
+
+describe('LAN session duration options', () => {
+  it('maps the four settings to the requested gateway lifetimes', () => {
+    expect(SESSION_DURATIONS).toEqual({
+      '1d': 86_400_000,
+      '7d': 604_800_000,
+      '30d': 2_592_000_000,
+      permanent: 'permanent',
+    })
+  })
+})
 
 describe('native listener requirement', () => {
   it.each(['0.0.0.0', '::', '192.0.2.10', '127.0.0.2', '::1'])(

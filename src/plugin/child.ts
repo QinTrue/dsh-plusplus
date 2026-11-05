@@ -6,8 +6,10 @@ import type { GatewayOptions } from '../gateway/config.ts'
 export class GatewayChild {
   private child?: ChildProcess
   private stopping?: Promise<void>
+  private renewalPending = false
   constructor(
     private readonly onExit: () => void,
+    private readonly refreshNativeUrl: () => Promise<string>,
     private readonly entry = new URL('./worker.js', import.meta.url),
   ) {}
   start(options: GatewayOptions): Promise<number> {
@@ -49,6 +51,18 @@ export class GatewayChild {
           clearTimeout(timer)
           resolve(message.expiresAt)
         }
+        if (message.type === 'renew-native' && !this.renewalPending) {
+          this.renewalPending = true
+          void this.refreshNativeUrl()
+            .then((upstreamUrl) => {
+              if (!this.child?.connected) throw new Error('Gateway stopped.')
+              this.child.send({ type: 'update-native', upstreamUrl }, (error) => {
+                if (error) void this.close()
+              })
+            })
+            .catch(() => void this.close())
+        }
+        if (message.type === 'renewed') this.renewalPending = false
         if (message.type === 'failed') {
           clearTimeout(timer)
           fail()
@@ -63,6 +77,9 @@ export class GatewayChild {
         }
       })
     })
+  }
+  refreshNativeSession(upstreamUrl: string): void {
+    if (this.child?.connected) this.child.send({ type: 'update-native', upstreamUrl })
   }
   close(): Promise<void> {
     if (this.stopping) return this.stopping

@@ -230,17 +230,67 @@ describe('independent gateway authentication', () => {
     expect(f.seen).toEqual([])
   })
 
-  it('ends gateway access at native cookie expiry and refuses fresh sessions', async () => {
-    const f = await setup({}, undefined, 2)
-    const session = cookie(await login(f.gateway))
-    expect((await send(f.gateway, '/unknown', { headers: { cookie: session } })).status).toBe(200)
-    const now = vi.spyOn(Date, 'now').mockReturnValue(Date.now() + 3000)
+  it('keeps the gateway expiry independent from a shorter native cookie expiry', async () => {
+    const f = await setup({ sessionTtlMs: 60_000 }, undefined, 2)
     try {
-      expect((await send(f.gateway, '/unknown', { headers: { cookie: session } })).status).toBe(401)
-      expect((await login(f.gateway)).status).toBe(503)
-      expect(f.seen).toHaveLength(1)
+      const session = cookie(await login(f.gateway))
+      const now = vi.spyOn(Date, 'now').mockReturnValue(Date.now() + 3000)
+      try {
+        expect((await send(f.gateway, '/unknown', { headers: { cookie: session } })).status).toBe(
+          200,
+        )
+        expect((await login(f.gateway)).status).toBe(503)
+        expect(f.seen).toHaveLength(1)
+      } finally {
+        now.mockRestore()
+      }
     } finally {
-      now.mockRestore()
+      await f.close()
+    }
+  })
+
+  it('renews the native credential without invalidating an existing LAN session', async () => {
+    const f = await setup()
+    try {
+      const session = cookie(await login(f.gateway))
+      expect((await send(f.gateway, '/unprotected', { headers: { cookie: session } })).status).toBe(
+        200,
+      )
+      const previousCookie = f.nativeCookie
+      await f.gateway.refreshNativeSession(f.upstreamUrl)
+      expect(f.nativeCookie).not.toBe(previousCookie)
+      expect((await send(f.gateway, '/unprotected', { headers: { cookie: session } })).status).toBe(
+        200,
+      )
+      expect(f.seen.at(-1)?.headers.cookie).toBe(f.nativeCookie)
+    } finally {
+      await f.close()
+    }
+  })
+
+  it('keeps permanent sessions until logout despite native cookie expiry', async () => {
+    const f = await setup({ sessionTtlMs: 'permanent' }, undefined, 2)
+    try {
+      const reply = await login(f.gateway)
+      expect(reply.headers['set-cookie']?.[0]).not.toMatch(/Max-Age=/)
+      const session = cookie(reply)
+      const now = vi.spyOn(Date, 'now').mockReturnValue(Date.now() + 3000)
+      try {
+        expect(
+          (await send(f.gateway, '/unprotected', { headers: { cookie: session } })).status,
+        ).toBe(200)
+      } finally {
+        now.mockRestore()
+      }
+      await send(f.gateway, '/lan/logout', {
+        method: 'POST',
+        headers: { cookie: session, origin: ORIGIN },
+      })
+      expect((await send(f.gateway, '/unprotected', { headers: { cookie: session } })).status).toBe(
+        401,
+      )
+    } finally {
+      await f.close()
     }
   })
 

@@ -18,6 +18,7 @@ import { renderLogin } from './page.ts'
 export interface Gateway {
   readonly address: { address: string; port: number }
   readonly nativeExpiresAt: number
+  refreshNativeSession(upstreamUrl: string): Promise<number>
   close(): Promise<void>
 }
 
@@ -26,13 +27,52 @@ export async function startGateway(options: GatewayOptions): Promise<Gateway> {
   const config = gatewayConfig(options)
   const lifecycle = new AbortController()
   // Authenticate upstream before opening a public socket; failures expose no unauthenticated mode.
-  const native = await nativeSession(config.upstream, lifecycle.signal)
+  let native = await nativeSession(config.upstream, lifecycle.signal)
   config.upstream.search = ''
   const proxy = new UpstreamProxy(config.upstream)
-  const sessions = new Sessions(config.origin, config.sessionTtlMs, config.maxSessions)
+  const sessions = new Sessions(
+    config.origin,
+    config.sessionTtlMs,
+    config.maxSessions,
+    config.permanentSessions,
+  )
   const attempts = new AttemptBudget()
   const sockets = new Set<Socket>()
   let closed = false
+  let renewalTimer: ReturnType<typeof setTimeout> | undefined
+  let renewalPending = false
+  const scheduleNativeRenewal = () => {
+    clearTimeout(renewalTimer)
+    const delay = Math.max(1000, native.expiresAt - Date.now() - 60_000)
+    if (delay > 2_147_000_000) {
+      renewalTimer = setTimeout(scheduleNativeRenewal, 2_147_000_000)
+    } else {
+      renewalTimer = setTimeout(() => {
+        if (closed || renewalPending) return
+        renewalPending = true
+        process.send?.({ type: 'renew-native' })
+        renewalTimer = setTimeout(() => {
+          if (!closed) process.send?.({ type: 'failed' })
+        }, 10_000)
+        renewalTimer.unref()
+      }, delay)
+    }
+    renewalTimer.unref()
+  }
+  scheduleNativeRenewal()
+  const refreshNativeSession = async (upstreamUrl: string) => {
+    const renewedConfig = gatewayConfig({ ...options, upstreamUrl })
+    if (renewedConfig.origin.origin !== config.origin.origin || renewedConfig.port !== config.port)
+      throw new Error('Native renewal target changed.')
+    const next = await nativeSession(renewedConfig.upstream, lifecycle.signal)
+    if (closed) throw new Error('Gateway stopped.')
+    native = next
+    sessions.refreshNativeCookie(next.cookie)
+    renewalPending = false
+    process.send?.({ type: 'renewed' })
+    scheduleNativeRenewal()
+    return next.expiresAt
+  }
 
   const validate = (req: IncomingMessage, requireOrigin = false) => {
     if (closed) throw new LoginError(503, '网关已停止。')
@@ -244,9 +284,11 @@ export async function startGateway(options: GatewayOptions): Promise<Gateway> {
   return {
     address: { address: address.address, port: address.port },
     nativeExpiresAt: native.expiresAt,
+    refreshNativeSession,
     close() {
       if (closing) return closing
       closed = true
+      clearTimeout(renewalTimer)
       lifecycle.abort()
       sessions.clear()
       attempts.clear()

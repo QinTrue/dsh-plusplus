@@ -26,6 +26,16 @@ process.on('message', (message: unknown) => {
     return
   }
   if (
+    'type' in message &&
+    message.type === 'update-native' &&
+    gateway &&
+    'upstreamUrl' in message &&
+    typeof message.upstreamUrl === 'string'
+  ) {
+    void gateway.refreshNativeSession(message.upstreamUrl).catch(() => void stop())
+    return
+  }
+  if (
     received ||
     stopping ||
     !('type' in message) ||
