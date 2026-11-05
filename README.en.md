@@ -64,6 +64,7 @@ Visit `/lan` to sign out using a same-origin POST. Sessions can be configured fo
 - `src/plugin/`: native configuration, management API, and worker lifecycle.
 - `src/client/`: native settings page.
 - `src/gateway/`: HTTP/HTTPS listener, authentication, proxying, sessions, and worker entry.
+- `src/modules/`: independent enhancement modules, such as archived-session deletion.
 - `tests/`: gateway, plugin, and package contract tests.
 - `scripts/`: build and native integration verification.
 - `docs/`: development conventions and architecture.

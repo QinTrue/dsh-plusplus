@@ -78,9 +78,6 @@ export class GatewayChild {
       })
     })
   }
-  refreshNativeSession(upstreamUrl: string): void {
-    if (this.child?.connected) this.child.send({ type: 'update-native', upstreamUrl })
-  }
   close(): Promise<void> {
     if (this.stopping) return this.stopping
     const child = this.child

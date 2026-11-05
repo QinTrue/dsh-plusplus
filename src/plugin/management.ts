@@ -45,7 +45,7 @@ export class LanManager {
   values(): PluginValues {
     return { ...this.config.lan.get() }
   }
-  suggestions(_port?: number): string[] {
+  suggestions(): string[] {
     return [
       ...new Set(
         Object.values(networkInterfaces()).flatMap((list) =>
